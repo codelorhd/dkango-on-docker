@@ -11,10 +11,8 @@ services:
       - media_volume:/home/app/web/mediafiles
     expose:
       - 8000 # Now, port 8000 is only exposed internally, to other Docker services. The port will no longer be published to the host machine. (nginx)
-    ports:
-      - 8000:8000
     env_file:
-      - ./.env.prod
+      - .env.prod
     depends_on:
       - db
       
@@ -23,19 +21,45 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - ./.env.prod.db
+      - .env.prod.db
 
-  nginx:
+  nginx-proxy:
+    container_name: nginx-proxy
     build: ./nginx
+    restart: always
     volumes:
       - static_volume:/home/app/web/staticfiles    
       - media_volume:/home/app/web/mediafiles
     ports:
-      - 1337:80 # http://localhost:1337/
+      - 443:443
+      - 80:80
+    volumes:
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/mediafiles
+      - certs:/etc/nginx/certs
+      - html:/usr/share/nginx/html
+      - vhost:/etc/nginx/vhost.d
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+
     depends_on:
       - web
+
+  nginx-proxy-letsencrypt:   
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    env_file:
+      - .env.prod.proxy-companion
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - html:/usr/share/nginx/html
+      - vhost:/etc/nginx/vhost.d
+    depends_on:
+      - nginx-proxy
 
 volumes:
   postgres_data:
   static_volume:
   media_volume:
+  certs:
+  html:
+  vhost:
